@@ -1,0 +1,87 @@
+import { useApi } from '../hooks/useApi'
+import Panel from './Panel'
+
+const SEVERITY: Record<string, { color: string; icon: string }> = {
+  critical: { color: 'var(--hud-error)', icon: '⚠' },
+  major: { color: 'var(--hud-warning)', icon: '✦' },
+  minor: { color: 'var(--hud-text-dim)', icon: '·' },
+}
+
+export default function CorrectionsPanel() {
+  const { data, isLoading } = useApi('/corrections', 60000)
+
+  // Only show loading on initial load
+  if (isLoading && !data) {
+    return <Panel title="纠错" className="col-span-full"><div className="glow text-[13px] animate-pulse">加载中...</div></Panel>
+  }
+
+  const corrections = data.corrections || []
+  const bySeverity: Record<string, any[]> = {}
+  for (const c of corrections) {
+    const s = c.severity || 'minor'
+    if (!bySeverity[s]) bySeverity[s] = []
+    bySeverity[s].push(c)
+  }
+
+  return (
+    <Panel title={`纠错与经验教训 — 共 ${corrections.length} 条`} className="col-span-full">
+      {/* Summary */}
+      <div className="flex gap-4 text-[13px] mb-3">
+        {['critical', 'major', 'minor'].map(sev => {
+          const count = bySeverity[sev]?.length || 0
+          if (count === 0) return null
+          const s = SEVERITY[sev]
+          return (
+            <span key={sev}>
+              <span style={{ color: s.color }}>{s.icon} {count} {sev === 'critical' ? '严重' : sev === 'major' ? '重要' : '一般'}</span>
+            </span>
+          )
+        })}
+        {corrections.length === 0 && (
+          <span style={{ color: 'var(--hud-text-dim)' }}>还没有记录纠错。这要么很厉害，要么值得怀疑。</span>
+        )}
+      </div>
+
+      {/* Explanation */}
+      {corrections.length > 0 && (
+        <div className="text-[13px] italic mb-3" style={{ color: 'var(--hud-text-dim)' }}>
+          这里记录的是我出错、被纠正，或以代价学会某件事的时刻。严重 = 用户指出了明确错误；重要 = 吸收了关键坑点；一般 = 记录到一个限制。
+        </div>
+      )}
+
+      {/* Grouped by severity */}
+      {['critical', 'major', 'minor'].map(sev => {
+        const items = bySeverity[sev] || []
+        if (items.length === 0) return null
+        const s = SEVERITY[sev]
+
+        return (
+          <div key={sev} className="mb-4">
+            <div className="text-[13px] font-bold mb-2" style={{ color: s.color }}>
+              {s.icon} {sev === 'critical' ? '严重' : sev === 'major' ? '重要' : '一般'} ({items.length})
+            </div>
+            <div className="space-y-2">
+              {items.map((cor: any, i: number) => (
+                <div key={i} className="p-2" style={{ background: 'var(--hud-bg-panel)', borderLeft: `2px solid ${s.color}` }}>
+                  <div className="flex items-center gap-2 text-[13px] mb-1">
+                    <span>{s.icon}</span>
+                    {cor.timestamp && (
+                      <span style={{ color: 'var(--hud-text-dim)' }}>
+                        {new Date(cor.timestamp).toLocaleDateString()} {new Date(cor.timestamp).toLocaleTimeString()}
+                      </span>
+                    )}
+                    {cor.source && <span style={{ color: 'var(--hud-text-dim)' }}>({cor.source})</span>}
+                  </div>
+                  <div className="text-[13px]" style={{ color: s.color }}>{cor.detail}</div>
+                  {cor.session_title && (
+                    <div className="text-[13px] mt-1" style={{ color: 'var(--hud-text-dim)' }}>↳ 会话：{cor.session_title}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </Panel>
+  )
+}
