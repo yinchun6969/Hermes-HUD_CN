@@ -9,6 +9,8 @@ from typing import Any, Optional
 
 
 class MessageRole(Enum):
+    """Message role types."""
+
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
@@ -16,6 +18,8 @@ class MessageRole(Enum):
 
 
 class ToolStatus(Enum):
+    """Tool call execution status."""
+
     RUNNING = "running"
     COMPLETE = "complete"
     ERROR = "error"
@@ -23,6 +27,8 @@ class ToolStatus(Enum):
 
 @dataclass
 class ToolCall:
+    """Represents a tool invocation."""
+
     id: str
     name: str
     arguments: dict[str, Any]
@@ -35,6 +41,8 @@ class ToolCall:
 
 @dataclass
 class ChatMessage:
+    """A chat message in a conversation."""
+
     id: str
     role: MessageRole
     content: str
@@ -44,18 +52,22 @@ class ChatMessage:
     reasoning: Optional[str] = None
     token_count: Optional[int] = None
     model: Optional[str] = None
-    parent_id: Optional[str] = None
+    parent_id: Optional[str] = None  # For message threading/editing
 
 
 @dataclass
 class StreamingEvent:
-    type: str
+    """Event for SSE streaming."""
+
+    type: str  # 'token', 'tool_start', 'tool_end', 'reasoning', 'done', 'error'
     data: dict[str, Any]
     timestamp: datetime = field(default_factory=datetime.now)
 
 
 @dataclass
 class ChatSession:
+    """An active chat session."""
+
     id: str
     profile: Optional[str] = None
     model: Optional[str] = None
@@ -65,11 +77,13 @@ class ChatSession:
     message_count: int = 0
     total_tokens: int = 0
     is_active: bool = True
-    backend_type: str = "unknown"
+    backend_type: str = "unknown"  # 'direct', 'tmux', 'unavailable'
 
 
 @dataclass
 class ComposerState:
+    """State for the chat composer UI."""
+
     model: str
     is_streaming: bool = False
     current_tool: Optional[ToolCall] = None

@@ -60,16 +60,27 @@ def cache_with_mtime(
         *file_paths: Files to monitor for changes
         ttl: Cache time-to-live in seconds (even if files unchanged)
         *dir_paths: Directories to monitor recursively
+
+    Example:
+        @cache_with_mtime("~/.hermes/state.db", ttl=60)
+        def collect_sessions(hermes_dir: str) -> SessionsState:
+            ...
+
+        @cache_with_mtime(dir_paths=("~/.hermes/skills",), ttl=300)
+        def collect_skills(hermes_dir: str) -> SkillsState:
+            ...
     """
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> T:
+            # Build cache key from function name + args
             args_key = str(args) + str(sorted(kwargs.items()))
             cache_key = (
                 f"{func.__name__}:{hashlib.md5(args_key.encode()).hexdigest()[:16]}"
             )
 
+            # Expand paths and get current mtimes
             expanded_files = [os.path.expanduser(p) for p in file_paths]
             expanded_dirs = [os.path.expanduser(p) for p in dir_paths]
 
@@ -79,23 +90,29 @@ def cache_with_mtime(
             current_mtime_hash = _compute_mtime_hash(*file_mtimes, *dir_mtimes)
             now = time.time()
 
+            # Check cache
             if cache_key in _cache_store:
                 result, stored_hash, timestamp = _cache_store[cache_key]
+                # Valid if mtimes match AND ttl not expired
                 if stored_hash == current_mtime_hash and (now - timestamp) < ttl:
                     return result
 
+            # Cache miss or invalid - compute and store
             result = func(*args, **kwargs)
             _cache_store[cache_key] = (result, current_mtime_hash, now)
             return result
 
+        # Expose cache management for testing/debugging
         wrapper._cache_key_prefix = func.__name__  # type: ignore
         wrapper._cache_clear = lambda: _clear_prefix(func.__name__)  # type: ignore
+
         return wrapper
 
     return decorator
 
 
 def _clear_prefix(prefix: str) -> int:
+    """Clear all cache entries with given prefix. Returns count cleared."""
     global _cache_store
     to_remove = [k for k in _cache_store if k.startswith(f"{prefix}:")]
     for k in to_remove:
@@ -104,6 +121,7 @@ def _clear_prefix(prefix: str) -> int:
 
 
 def clear_cache() -> int:
+    """Clear entire cache. Returns count cleared."""
     global _cache_store
     count = len(_cache_store)
     _cache_store.clear()
@@ -111,10 +129,16 @@ def clear_cache() -> int:
 
 
 def get_cache_stats() -> dict[str, Any]:
+    """Get cache statistics for monitoring."""
     now = time.time()
     entries = []
     for key, (_, _, timestamp) in _cache_store.items():
-        entries.append({"key": key, "age_seconds": now - timestamp})
+        entries.append(
+            {
+                "key": key,
+                "age_seconds": now - timestamp,
+            }
+        )
     return {
         "total_entries": len(_cache_store),
         "entries": sorted(entries, key=lambda x: x["age_seconds"], reverse=True),
@@ -128,6 +152,30 @@ def get_cached_or_compute(
     dir_paths: list[str | Path] = None,
     ttl: int = DEFAULT_TTL,
 ) -> T:
+    """Get cached result or compute it. For use with dynamic paths.
+
+    Args:
+        cache_key: Unique key for this cache entry
+        compute_fn: Function that returns the computed value
+        file_paths: Files to monitor for changes
+        dir_paths: Directories to monitor recursively
+        ttl: Cache time-to-live in seconds
+
+    Example:
+        def collect_sessions(hermes_dir: str) -> SessionsState:
+            db_path = Path(hermes_dir) / "state.db"
+
+            def _compute() -> SessionsState:
+                # ... expensive SQLite queries ...
+                return SessionsState(...)
+
+            return get_cached_or_compute(
+                f"sessions:{hermes_dir}",
+                _compute,
+                file_paths=[db_path],
+                ttl=30
+            )
+    """
     file_paths = file_paths or []
     dir_paths = dir_paths or []
 
@@ -137,11 +185,13 @@ def get_cached_or_compute(
     current_mtime_hash = _compute_mtime_hash(*file_mtimes, *dir_mtimes)
     now = time.time()
 
+    # Check cache
     if cache_key in _cache_store:
         result, stored_hash, timestamp = _cache_store[cache_key]
         if stored_hash == current_mtime_hash and (now - timestamp) < ttl:
             return result
 
+    # Cache miss - compute and store
     result = compute_fn()
     _cache_store[cache_key] = (result, current_mtime_hash, now)
     return result
