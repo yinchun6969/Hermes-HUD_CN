@@ -15,10 +15,14 @@ router = APIRouter()
 
 @router.get("/dashboard")
 async def get_dashboard():
+    """Everything the overview narrative needs — trimmed to essentials."""
+
     state = collect_all()
     health = collect_health()
     corrections = collect_corrections()
     snapshots = load_snapshots()
+
+    # Trim state: only keep what the narrative sections need
     lean_state = {
         "config": to_dict(state.config),
         "memory": {
@@ -48,14 +52,19 @@ async def get_dashboard():
             "total_tool_calls": state.sessions.total_tool_calls,
             "total_tokens": state.sessions.total_tokens,
             "by_source": state.sessions.by_source(),
-            "tool_usage": dict(sorted(state.sessions.tool_usage.items(), key=lambda x: -x[1])[:12]),
+            "tool_usage": dict(
+                sorted(state.sessions.tool_usage.items(), key=lambda x: -x[1])[:12]
+            ),
             "daily_stats": to_dict(state.sessions.daily_stats),
             "date_range": to_dict(state.sessions.date_range),
         },
         "timeline": to_dict(state.timeline),
     }
 
+    # Cron: just jobs list
     cron = to_dict(collect_cron())
+
+    # Projects: only active + dirty for the narrative
     projects_data = collect_projects()
     active_projects = [
         to_dict(p) for p in projects_data.projects

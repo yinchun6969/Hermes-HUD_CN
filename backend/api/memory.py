@@ -17,11 +17,14 @@ from backend.collectors.utils import default_hermes_dir
 from .serialize import to_dict
 
 router = APIRouter()
+
 ENTRY_DELIMITER = "\n§\n"
+
 MemoryTarget = Literal["memory", "user"]
 
 
 def _memory_path(target: MemoryTarget) -> Path:
+    """Return the path for MEMORY.md or USER.md."""
     memories_dir = Path(default_hermes_dir()) / "memories"
     if target == "user":
         return memories_dir / "USER.md"
@@ -33,6 +36,7 @@ def _lock_path(target: MemoryTarget) -> Path:
 
 
 def _read_entries(target: MemoryTarget) -> list[str]:
+    """Read and split entries from a memory file."""
     path = _memory_path(target)
     try:
         content = path.read_text(encoding="utf-8").strip()
@@ -44,6 +48,7 @@ def _read_entries(target: MemoryTarget) -> list[str]:
 
 
 def _write_entries(target: MemoryTarget, entries: list[str]) -> None:
+    """Atomically write entries back to a memory file."""
     path = _memory_path(target)
     path.parent.mkdir(parents=True, exist_ok=True)
     content = ENTRY_DELIMITER.join(entries) + "\n" if entries else ""
@@ -62,6 +67,7 @@ def _write_entries(target: MemoryTarget, entries: list[str]) -> None:
 
 
 def _with_lock(target: MemoryTarget, fn):
+    """Execute fn while holding the memory file lock."""
     lock = _lock_path(target)
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.touch(exist_ok=True)
@@ -72,9 +78,16 @@ def _with_lock(target: MemoryTarget, fn):
 
 @router.get("/memory")
 async def get_memory():
+    """Memory and user profile state."""
     config = collect_config()
-    memory, user = collect_memory(memory_char_limit=config.memory_char_limit, user_char_limit=config.user_char_limit)
-    return {"memory": to_dict(memory), "user": to_dict(user)}
+    memory, user = collect_memory(
+        memory_char_limit=config.memory_char_limit,
+        user_char_limit=config.user_char_limit,
+    )
+    return {
+        "memory": to_dict(memory),
+        "user": to_dict(user),
+    }
 
 
 class AddBody(BaseModel):
@@ -95,6 +108,7 @@ class DeleteBody(BaseModel):
 
 @router.post("/memory")
 def add_entry(body: AddBody):
+    """Add a new memory entry."""
     content = body.content.strip()
     if not content:
         raise HTTPException(400, "content cannot be empty")
@@ -113,6 +127,7 @@ def add_entry(body: AddBody):
 
 @router.put("/memory")
 def edit_entry(body: EditBody):
+    """Replace a memory entry (matched by old_text substring)."""
     new_content = body.content.strip()
     if not new_content:
         raise HTTPException(400, "content cannot be empty")
@@ -133,6 +148,8 @@ def edit_entry(body: EditBody):
 
 @router.delete("/memory")
 def delete_entry(body: DeleteBody):
+    """Remove a memory entry (matched by old_text substring)."""
+
     def do():
         entries = _read_entries(body.target)
         matches = [i for i, e in enumerate(entries) if body.old_text in e]

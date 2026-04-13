@@ -25,6 +25,7 @@ async def get_sessions():
 
 @router.get("/sessions/search")
 async def search_sessions(q: str = Query(..., min_length=1)):
+    """Search sessions by title or message content using FTS."""
     db = _db_path()
     if not db.exists():
         return []
@@ -34,6 +35,7 @@ async def search_sessions(q: str = Query(..., min_length=1)):
         conn = sqlite3.connect(str(db))
         conn.row_factory = sqlite3.Row
 
+        # Search sessions table by title
         title_rows = conn.execute(
             """
             SELECT id, source, title, started_at, message_count, tool_call_count
@@ -58,6 +60,7 @@ async def search_sessions(q: str = Query(..., min_length=1)):
                 "snippet": None,
             })
 
+        # Search message content via FTS
         try:
             fts_rows = conn.execute(
                 """
@@ -78,6 +81,7 @@ async def search_sessions(q: str = Query(..., min_length=1)):
                 if sid in seen_ids:
                     continue
                 seen_ids.add(sid)
+                # Build a short snippet around the match
                 content = row["content"] or ""
                 idx = content.lower().find(q.lower())
                 if idx >= 0:
@@ -97,7 +101,7 @@ async def search_sessions(q: str = Query(..., min_length=1)):
                     "snippet": snippet,
                 })
         except Exception:
-            pass
+            pass  # FTS may not be available
 
         conn.close()
     except Exception as e:
@@ -108,6 +112,7 @@ async def search_sessions(q: str = Query(..., min_length=1)):
 
 @router.get("/sessions/{session_id}/messages")
 async def get_session_messages(session_id: str, limit: int = 200):
+    """Fetch full message transcript for a session."""
     db = _db_path()
     if not db.exists():
         raise HTTPException(status_code=404, detail="Database not found")
@@ -115,6 +120,7 @@ async def get_session_messages(session_id: str, limit: int = 200):
     conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
     try:
+        # Verify session exists
         session = conn.execute(
             "SELECT id, title, source, started_at FROM sessions WHERE id = ?",
             (session_id,),
@@ -149,7 +155,7 @@ async def get_session_messages(session_id: str, limit: int = 200):
                     "token_count": row["token_count"] or 0,
                 }
                 for row in messages
-                if row["role"] in ("user", "assistant")
+                if row["role"] in ("user", "assistant")  # skip system/tool noise
             ],
         }
     except HTTPException:

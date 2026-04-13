@@ -11,6 +11,7 @@ from backend.collectors.cron import collect_cron
 from .serialize import to_dict
 
 router = APIRouter()
+
 _HERMES_BIN: str | None = shutil.which("hermes")
 
 
@@ -21,7 +22,11 @@ def _hermes() -> str:
 
 
 def _run(action: str, job_id: str) -> None:
-    result = subprocess.run([_hermes(), "cron", action, job_id], capture_output=True, timeout=10)
+    result = subprocess.run(
+        [_hermes(), "cron", action, job_id],
+        capture_output=True,
+        timeout=10,
+    )
     if result.returncode != 0:
         detail = result.stderr.decode(errors="replace").strip() or f"hermes cron {action} failed"
         raise HTTPException(status_code=500, detail=detail)

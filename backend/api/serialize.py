@@ -8,11 +8,13 @@ from typing import Any
 
 
 def to_dict(obj: Any) -> Any:
+    """Recursively convert dataclasses to dicts, handling datetime."""
     if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
         result = {}
         for f in dataclasses.fields(obj):
             value = getattr(obj, f.name)
             result[f.name] = to_dict(value)
+        # Include @property values
         for name in dir(type(obj)):
             if isinstance(getattr(type(obj), name, None), property):
                 try:
