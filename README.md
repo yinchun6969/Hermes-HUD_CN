@@ -42,9 +42,6 @@ If you use this project publicly, keep your own `HERMES_HOME`, credentials, and 
 
 如果你准备公开使用本项目，请把自己的 `HERMES_HOME`、凭据和运行数据放在仓库之外。
 
-![Token Costs](assets/dashboard-costs.png)
-
-![Agent Profiles](assets/profiles.png)
 
 ## Quick Start / 快速开始
 
