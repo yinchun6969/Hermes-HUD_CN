@@ -1,0 +1,27 @@
+This repository is a Simplified Chinese localization derived from:
+https://github.com/joeynyc/hermes-hudui
+
+本仓库基于以下原项目进行简体中文本地化整理：
+https://github.com/joeynyc/hermes-hudui
+
+Original author:
+Joey NYC / @joeynyc
+
+原作者：
+Joey NYC / @joeynyc
+
+Acknowledgement:
+Thank you to the original author for the open-source work on Hermes HUD UI.
+
+致谢：
+感谢原作者开源 Hermes HUD UI。
+
+Public release note:
+This repository is intended for public source distribution only.
+No personal Hermes runtime data, local databases, secrets, API keys, tokens,
+logs, or private session content should be committed here.
+
+公开发布说明：
+本仓库仅用于公开源码分发。
+请不要提交个人 Hermes 运行数据、本地数据库、密钥、API Key、Token、
+日志或任何私人会话内容。
