@@ -36,6 +36,7 @@ Desktop.ini
 *~
 
 # Hermes data (never commit agent data)
+.hermes/
 *.db
 *.db-wal
 *.db-shm

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import sys
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from ..collectors.utils import default_hermes_dir, default_hermes_repo_dir, find_hermes_cli
 from ..chat import (
     ChatEngine,
     ChatNotAvailableError,
@@ -44,6 +46,24 @@ class ComposerStateResponse(BaseModel):
     model: str
     is_streaming: bool
     context_tokens: int
+
+
+def _check_direct_import() -> tuple[bool, str]:
+    """Check whether the local Hermes repo can be imported directly."""
+    repo_dir = default_hermes_repo_dir()
+    repo_path = str(repo_dir)
+
+    if not repo_dir.exists():
+        return False, repo_path
+
+    if repo_path not in sys.path:
+        sys.path.insert(0, repo_path)
+
+    try:
+        from run_agent import AIAgent  # noqa: F401
+        return True, repo_path
+    except ImportError:
+        return False, repo_path
 
 
 @router.post("/sessions", response_model=SessionResponse)
@@ -224,14 +244,9 @@ async def check_availability() -> dict[str, Any]:
     from ..chat import TmuxChatFallback
 
     cli_available = chat_engine.is_available()
+    cli_path = find_hermes_cli()
 
-    direct_import = False
-    try:
-        from run_agent import AIAgent
-
-        direct_import = True
-    except ImportError:
-        pass
+    direct_import, repo_path = _check_direct_import()
 
     tmux_available = TmuxChatFallback.is_available()
     tmux_pane = TmuxChatFallback.find_hermes_pane() if tmux_available else None
@@ -239,7 +254,10 @@ async def check_availability() -> dict[str, Any]:
     return {
         "available": cli_available or direct_import or (tmux_available and tmux_pane is not None),
         "cli_available": cli_available,
+        "cli_path": cli_path,
         "direct_import": direct_import,
+        "repo_path": repo_path,
+        "hermes_home": default_hermes_dir(),
         "tmux_available": tmux_available,
         "tmux_pane_found": tmux_pane is not None,
         "tmux_pane_id": tmux_pane,

@@ -13,6 +13,7 @@ import ProjectsPanel from './components/ProjectsPanel'
 import HealthPanel from './components/HealthPanel'
 import AgentsPanel from './components/AgentsPanel'
 import ChatPanel from './components/ChatPanel'
+import OfficialDashboardPanel from './components/OfficialDashboardPanel'
 import ProfilesPanel from './components/ProfilesPanel'
 import TokenCostsPanel from './components/TokenCostsPanel'
 import CorrectionsPanel from './components/CorrectionsPanel'
@@ -29,6 +30,7 @@ function TabContent({ tab }: { tab: TabId }) {
     case 'health': return <HealthPanel />
     case 'agents': return <AgentsPanel />
     case 'chat': return <ChatPanel />
+    case 'official-ui': return <OfficialDashboardPanel />
     case 'profiles': return <ProfilesPanel />
     case 'token-costs': return <TokenCostsPanel />
     case 'corrections': return <CorrectionsPanel />
@@ -48,6 +50,7 @@ const GRID_CLASS: Record<TabId, string> = {
   health: 'grid-cols-1 sm:grid-cols-2',
   agents: 'grid-cols-1 lg:grid-cols-2',
   chat: 'grid-cols-1',  // Full width for chat
+  'official-ui': 'grid-cols-1',
   profiles: 'grid-cols-1',
   'token-costs': 'grid-cols-1 lg:grid-cols-2',
   corrections: 'grid-cols-1',
@@ -59,6 +62,7 @@ export default function App() {
   const [booted, setBooted] = useState(() => {
     return sessionStorage.getItem('hud-booted') === 'true'
   })
+  const isFullHeightTab = activeTab === 'chat' || activeTab === 'official-ui'
   
   // WebSocket for real-time updates
   const { status: wsStatus } = useWebSocket()
@@ -104,9 +108,9 @@ export default function App() {
       <TopBar activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Chat tab: fixed-height, no page scroll — message thread scrolls internally */}
-      {activeTab === 'chat' ? (
+      {isFullHeightTab ? (
         <div style={{ flex: '1 1 0', height: 0, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div className="p-2 h-full">
+          <div className="p-2 h-full min-h-0">
             <TabContent tab={activeTab} />
           </div>
         </div>

@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from backend.collectors.utils import default_hermes_dir
+from backend.collectors.utils import default_hermes_dir, find_hermes_cli
 from .models import (
     ChatSession,
     ComposerState,
@@ -105,8 +105,21 @@ class ChatEngine:
         self._streamers: dict[str, ChatStreamer] = {}
         self._processes: dict[str, subprocess.Popen] = {}
         self._initialized = True
-        self._hermes_path = shutil.which("hermes")
+        self._hermes_path: str | None = None
+        self._cli_available = False
+        self._refresh_cli()
+
+    def _build_env(self) -> dict[str, str]:
+        """Return the subprocess environment for Hermes CLI calls."""
+        env = os.environ.copy()
+        env.setdefault("HERMES_HOME", default_hermes_dir())
+        return env
+
+    def _refresh_cli(self) -> bool:
+        """Refresh CLI discovery so launchd restarts pick up new installs."""
+        self._hermes_path = find_hermes_cli()
         self._cli_available = self._check_cli()
+        return self._cli_available
 
     def _check_cli(self) -> bool:
         """Check if hermes CLI is available."""
@@ -114,7 +127,10 @@ class ChatEngine:
             return False
         try:
             result = subprocess.run(
-                [self._hermes_path, "--version"], capture_output=True, timeout=5
+                [self._hermes_path, "--version"],
+                capture_output=True,
+                timeout=5,
+                env=self._build_env(),
             )
             return result.returncode == 0
         except Exception:
@@ -122,13 +138,13 @@ class ChatEngine:
 
     def is_available(self) -> bool:
         """Check if chat is available."""
-        return self._cli_available
+        return self._refresh_cli()
 
     def create_session(
         self, profile: Optional[str] = None, model: Optional[str] = None
     ) -> ChatSession:
         """Create a new chat session."""
-        if not self._cli_available:
+        if not self._refresh_cli():
             raise ChatNotAvailableError(
                 "Hermes CLI not available. Install hermes-agent: pip install hermes-agent"
             )
@@ -181,6 +197,11 @@ class ChatEngine:
         content: str,
     ) -> ChatStreamer:
         """Send a message using hermes chat -q -Q and stream stdout."""
+        if not self._refresh_cli() or not self._hermes_path:
+            raise ChatNotAvailableError(
+                "Hermes CLI not available. Check HERMES_HOME and the Hermes install."
+            )
+
         session = self._sessions.get(session_id)
         if not session:
             raise ChatNotAvailableError(f"Session {session_id} not found")
@@ -239,6 +260,7 @@ class ChatEngine:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     cwd=os.path.expanduser("~"),
+                    env=self._build_env(),
                 )
                 self._processes[session_id] = process
 

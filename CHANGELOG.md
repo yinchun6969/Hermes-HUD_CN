@@ -2,6 +2,18 @@
 
 All notable changes to hermes-hudui are documented here.
 
+## [0.4.0] — 2026-04-14
+
+### Added
+- **Embedded official Hermes dashboard** — a dedicated tab now embeds the official Hermes web dashboard and can restart or open it in a separate window.
+- **CLI-backed live chat for the web UI** — the chat tab now discovers the local Hermes CLI reliably under launchd and works without requiring a tmux fallback.
+- **Simplified Chinese public release polish** — bilingual public README/NOTICE, safer repo defaults, and a shareable public release layout.
+
+### Fixed
+- **Official dashboard layout** — the embedded official dashboard now uses a full-height panel instead of a cramped top strip.
+- **Agents panel process detection** — the collector now excludes HUD/dashboard helper processes and labels the actual Hermes runtime as `hermes-gateway`.
+- **Top navigation ordering** — the official dashboard tab now sits at the end of the top menu.
+
 ## [0.3.1] — 2026-04-12
 
 ### Added

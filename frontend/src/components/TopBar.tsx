@@ -15,6 +15,7 @@ export const TABS = [
   { id: 'token-costs', label: '成本', key: null },  // Click only, no hotkey
   { id: 'corrections', label: '纠错', key: null },
   { id: 'patterns', label: '模式', key: null },
+  { id: 'official-ui', label: '官方新版', key: null },
 ] as const
 
 export type TabId = typeof TABS[number]['id']

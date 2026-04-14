@@ -186,7 +186,7 @@ class FileWatcherService:
                     if _should_ignore(path):
                         continue
 
-                        data_types = _detect_change_type(path)
+                    data_types = _detect_change_type(path)
                     data_types_changed.update(data_types)
                     changed_files.append(path)
                     logger.debug(f"Detected {change_type.name}: {path} -> {data_types}")

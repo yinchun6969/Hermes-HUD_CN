@@ -28,6 +28,7 @@ class AgentProcess:
     cmdline: Optional[str] = None     # truncated command line
     cpu_pct: Optional[float] = None
     mem_mb: Optional[float] = None
+    raw_cmdline: Optional[str] = None
     # tmux mapping fields
     tty: Optional[str] = None
     tmux_pane: Optional[str] = None
@@ -180,6 +181,7 @@ def _get_process_info_linux(name: str, binary: str) -> list[AgentProcess]:
                 if cmdline_path.exists():
                     cmdline = cmdline_path.read_bytes().decode("utf-8", errors="replace")
                     cmdline = cmdline.replace("\x00", " ").strip()
+                    agent.raw_cmdline = cmdline
                     if len(cmdline) > 80:
                         cmdline = cmdline[:77] + "..."
                     agent.cmdline = cmdline
@@ -265,6 +267,7 @@ def _get_process_info_macos(name: str, binary: str) -> list[AgentProcess]:
                         agent.tty = parts[2]
                     if len(parts) >= 4:
                         cmd = parts[3].strip()
+                        agent.raw_cmdline = cmd
                         if len(cmd) > 80:
                             cmd = cmd[:77] + "..."
                         agent.cmdline = cmd
@@ -315,6 +318,25 @@ def _format_uptime(seconds: int) -> str:
         d = seconds // 86400
         h = (seconds % 86400) // 3600
         return f"{d}d{h}h" if h else f"{d}d"
+
+
+def _normalize_agent_process(agent: AgentProcess) -> AgentProcess | None:
+    """Filter non-agent Hermes helpers and rename known Hermes roles."""
+    raw = (agent.raw_cmdline or agent.cmdline or "").lower()
+
+    if agent.name != "hermes" or not raw:
+        return agent
+
+    # HUD and dashboard are support UIs, not agent runtimes.
+    if "hermes-hudui" in raw:
+        return None
+    if re.search(r"(^|[ /-])hermes\s+dashboard\b", raw) or " -m hermes_cli.main dashboard" in raw:
+        return None
+
+    if re.search(r"(^|[ /-])hermes\s+gateway\b", raw) or " -m hermes_cli.main gateway " in raw:
+        agent.name = "hermes-gateway"
+
+    return agent
 
 
 def _get_tty_for_pid(pid: int) -> Optional[str]:
@@ -555,7 +577,11 @@ def collect_agents(hermes_dir: str | None = None) -> AgentsState:
                 if agent.pid == os.getppid():
                     continue
 
-            processes.append(agent)
+            normalized = _normalize_agent_process(agent)
+            if normalized is None:
+                continue
+
+            processes.append(normalized)
 
     # tmux discovery
     panes = _list_tmux_panes()

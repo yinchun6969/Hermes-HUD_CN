@@ -1,7 +1,9 @@
 """Shared utilities for Hermes HUD collectors."""
 
 import os
+import shutil
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 
@@ -13,6 +15,34 @@ def default_hermes_dir(hermes_dir: str | None = None) -> str:
     if hermes_dir:
         return hermes_dir
     return os.environ.get("HERMES_HOME", os.path.expanduser("~/.hermes"))
+
+
+def default_hermes_repo_dir(hermes_dir: str | None = None) -> Path:
+    """Return the installed Hermes source directory."""
+    return Path(default_hermes_dir(hermes_dir)).expanduser() / "hermes-agent"
+
+
+def find_hermes_cli(hermes_dir: str | None = None) -> str | None:
+    """Locate the Hermes CLI in common install locations."""
+    candidate_values = [
+        os.environ.get("HERMES_CLI_PATH"),
+        shutil.which("hermes"),
+        str(Path.home() / ".local" / "bin" / "hermes"),
+        str(default_hermes_repo_dir(hermes_dir) / "venv" / "bin" / "hermes"),
+    ]
+
+    seen: set[str] = set()
+    for raw_value in candidate_values:
+        if not raw_value:
+            continue
+        candidate = str(Path(raw_value).expanduser())
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+
+    return None
 
 
 def default_projects_dir(projects_dir: str | None = None) -> str:
